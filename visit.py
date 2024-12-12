@@ -1,7 +1,6 @@
 import requests
-import time
 
-# هدرهای مورد نیاز
+# Required headers
 headers = {
     ":authority": "piratewins.io",
     ":method": "POST",
@@ -28,7 +27,7 @@ headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
 }
 
-# بارگذاری پروکسی‌ها از فایل
+# Load proxies from file
 def load_proxies(filename):
     proxies = []
     with open(filename, "r") as file:
@@ -38,10 +37,10 @@ def load_proxies(filename):
                 proxies.append(proxy)
     return proxies
 
-# ارسال درخواست
+# Send requests
 def send_request(url, proxies):
     successful_requests = 0
-    for proxy in proxies:
+    for index, proxy in enumerate(proxies, start=1):
         proxy_dict = {
             "http": f"http://{proxy}",
             "https": f"http://{proxy}",
@@ -50,16 +49,17 @@ def send_request(url, proxies):
             response = requests.post(url, headers=headers, proxies=proxy_dict, timeout=10)
             if response.status_code == 302:
                 successful_requests += 1
-                # نمایش تعداد درخواست‌های موفق به صورت زنده
-                print(f"\rتعداد درخواست‌های موفق: {successful_requests}", end="")
-        except requests.RequestException:
-            continue
+                print(f"[{index}/{len(proxies)}] Proxy {proxy} succeeded (302 response).")
+            else:
+                print(f"[{index}/{len(proxies)}] Proxy {proxy} failed (Status: {response.status_code}).")
+        except requests.RequestException as e:
+            print(f"[{index}/{len(proxies)}] Proxy {proxy} error: {e}")
     return successful_requests
 
-# اجرای برنامه
+# Main program execution
 if __name__ == "__main__":
-    url = "https://piratewins.io/?pirate=2458836"  # لینک مقصد
-    proxies = load_proxies("proxies.txt")  # نام فایل پروکسی‌ها
-    print("در حال ارسال درخواست‌ها...")
+    url = "https://piratewins.io/?pirate=2458836"  # Destination URL
+    proxies = load_proxies("proxies.txt")  # Proxy file name
+    print("Starting to send requests...")
     success_count = send_request(url, proxies)
-    print(f"\nتعداد کل درخواست‌های موفق: {success_count}")
+    print(f"\nTotal successful requests: {success_count}")
