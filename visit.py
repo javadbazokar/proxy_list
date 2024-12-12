@@ -42,9 +42,10 @@ def send_single_request(proxy, success_counter, total_counter, lock):
             if response.status == 302:
                 success_counter[0] += 1
         connection.close()
-    except Exception:
+    except Exception as e:
         with lock:
             total_counter[0] += 1
+        print(f"Error with proxy {proxy}: {e}")  # Display the error
 
 # Send requests concurrently
 def send_requests_concurrently(proxies):
