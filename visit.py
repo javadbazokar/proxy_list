@@ -1,11 +1,13 @@
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 # Required headers
 headers = {
-    ":authority": "piratewins.io",
-    ":method": "POST",
-    ":path": "/?pirate=2458836",
-    ":scheme": "https",
+    "authority": "piratewins.io",
+    "method": "POST",
+    "path": "/?pirate=2458836",
+    "scheme": "https",
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     "accept-encoding": "gzip, deflate, br, zstd",
     "accept-language": "en-US,en;q=0.9,fa-IR;q=0.8,fa;q=0.7,zh-CN;q=0.6,zh;q=0.5",
@@ -37,29 +39,40 @@ def load_proxies(filename):
                 proxies.append(proxy)
     return proxies
 
-# Send requests
-def send_request(url, proxies):
-    successful_requests = 0
-    for index, proxy in enumerate(proxies, start=1):
-        proxy_dict = {
-            "http": f"http://{proxy}",
-            "https": f"http://{proxy}",
-        }
-        try:
-            response = requests.post(url, headers=headers, proxies=proxy_dict, timeout=10)
+# Send a single request
+def send_single_request(url, proxy, success_counter, total_counter, lock):
+    proxy_dict = {
+        "http": f"http://{proxy}",
+        "https": f"http://{proxy}",
+    }
+    try:
+        response = requests.post(url, headers=headers, proxies=proxy_dict, timeout=10)
+        with lock:
+            total_counter[0] += 1
             if response.status_code == 302:
-                successful_requests += 1
-                print(f"[{index}/{len(proxies)}] Proxy {proxy} succeeded (302 response).")
-            else:
-                print(f"[{index}/{len(proxies)}] Proxy {proxy} failed (Status: {response.status_code}).")
-        except requests.RequestException as e:
-            print(f"[{index}/{len(proxies)}] Proxy {proxy} error: {e}")
-    return successful_requests
+                success_counter[0] += 1
+        return True
+    except requests.RequestException:
+        with lock:
+            total_counter[0] += 1
+        return False
+
+# Send requests concurrently
+def send_requests_concurrently(url, proxies):
+    success_counter = [0]
+    total_counter = [0]
+    lock = Lock()
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(send_single_request, url, proxy, success_counter, total_counter, lock) for proxy in proxies]
+        for future in as_completed(futures):
+            with lock:
+                print(f"Total: {total_counter[0]} | Successful: {success_counter[0]}", end="\r")
+    return success_counter[0]
 
 # Main program execution
 if __name__ == "__main__":
     url = "https://piratewins.io/?pirate=2458836"  # Destination URL
     proxies = load_proxies("proxies.txt")  # Proxy file name
     print("Starting to send requests...")
-    success_count = send_request(url, proxies)
-    print(f"\nTotal successful requests: {success_count}")
+    total_success = send_requests_concurrently(url, proxies)
+    print(f"\n\nTotal successful requests: {total_success}")
