@@ -62,8 +62,8 @@ def send_requests_concurrently(proxies):
     success_counter = [0]
     total_counter = [0]
     lock = Lock()
-    with httpx.Client(http_versions=[httpx.HTTPVersion.HTTP_2]) as client:
-        with ThreadPoolExecutor(max_workers=20) as executor:
+    with httpx.Client() as client:  # Remove http_versions parameter
+        with ThreadPoolExecutor(max_workers=100) as executor:
             futures = [executor.submit(send_single_request, proxy, success_counter, total_counter, lock, client) for proxy in proxies]
             for future in as_completed(futures):
                 with lock:
